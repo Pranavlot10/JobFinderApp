@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import axios from "axios";
 import {
   View,
   Text,
@@ -10,6 +11,7 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
+
 import * as Colors from "../constants/colors";
 import * as Sizes from "../constants/sizes";
 
@@ -70,6 +72,31 @@ const jobData = [
 
 const JobCard = ({ item, onPress }) => {
   const typeStyle = Colors.JOB_TYPES[item.type] || Colors.JOB_TYPES.default;
+
+  const [homeData, setHomeData] = useState([]);
+
+  useEffect(() => {
+    const fetchHomeJobsData = async () => {
+      console.log("Fetching home jobs data...");
+      const homeJobsData = await axios.get(
+        "https://jsearch.p.rapidapi.com/search",
+        {
+          params: { query: "Full Stack Developer", country: "in", page: "1" },
+          headers: {
+            "x-rapidapi-key":
+              "96a68e0707msh13635f777e692d8p128203jsnf25554beff43",
+            "x-rapidapi-host": "jsearch.p.rapidapi.com",
+          },
+        }
+      );
+      setHomeData(homeJobsData.data.data);
+      console.log("hh", homeJobsData);
+    };
+    fetchHomeJobsData();
+  });
+
+  console.log(homeData[0]);
+  console.log(homeData.length);
 
   return (
     <TouchableOpacity

@@ -10,62 +10,23 @@ import {
   Modal,
   ScrollView,
 } from "react-native";
+import axios from "axios";
 
 import * as Colors from "../constants/colors";
 import * as Sizes from "../constants/sizes";
 
 import { auth, db } from "../firebase";
 import { doc, getDoc } from "firebase/firestore";
+import { useSelector } from "react-redux";
 
 // Get screen dimensions for responsive sizing
 const { width, height } = Dimensions.get("window");
 
-const jobData = [
-  // Sample data (you can replace this with API later)
-  {
-    id: "1",
-    title: "Frontend Developer",
-    company: "WebTech",
-    location: "Remote",
-    type: "Remote",
-    salary: "$70,000",
-  },
-  {
-    id: "2",
-    title: "Backend Developer",
-    company: "DataWorks",
-    location: "NY",
-    type: "Full-time",
-    salary: "$90,000",
-  },
-  {
-    id: "3",
-    title: "Mobile Developer",
-    company: "Appify",
-    location: "Remote",
-    type: "Contract",
-    salary: "$85,000",
-  },
-  {
-    id: "4",
-    title: "Data Scientist",
-    company: "AnalyzeIt",
-    location: "SF",
-    type: "Full-time",
-    salary: "$120,000",
-  },
-  {
-    id: "5",
-    title: "Fullstack Developer",
-    company: "BuildAll",
-    location: "Chicago",
-    type: "Full-time",
-    salary: "$110,000",
-  },
-];
-
 const JobCard = ({ item, onPress }) => {
-  const typeStyle = Colors.JOB_TYPES[item.type] || Colors.JOB_TYPES.default;
+  const type = item.job_employment_type || "Other";
+  const typeStyle = Colors.JOB_TYPES[type] || Colors.JOB_TYPES.default;
+
+  // console.log(item.job_is_remote);
 
   return (
     <TouchableOpacity
@@ -76,15 +37,15 @@ const JobCard = ({ item, onPress }) => {
       <View style={styles.jobHeader}>
         <View style={styles.jobTitleContainer}>
           <Text style={styles.jobTitle} numberOfLines={2}>
-            {item.title}
+            {item.job_title}
           </Text>
-          <Text style={styles.jobCompany}>{item.company}</Text>
+          <Text style={styles.jobCompany}>{item.employer_name}</Text>
         </View>
         <View
           style={[styles.typeTag, { backgroundColor: typeStyle.background }]}
         >
           <Text style={[styles.typeText, { color: typeStyle.text }]}>
-            {item.type}
+            {type}
           </Text>
         </View>
       </View>
@@ -92,11 +53,15 @@ const JobCard = ({ item, onPress }) => {
       <View style={styles.jobDetails}>
         <View style={styles.detailRow}>
           <Text style={styles.detailIcon}>📍</Text>
-          <Text style={styles.detailText}>{item.location}</Text>
+          <Text style={styles.detailText}>
+            {item.job_is_remote ? "Remote" : item.job_location || "N/A"}
+          </Text>
         </View>
         <View style={styles.detailRow}>
           <Text style={styles.detailIcon}>💰</Text>
-          <Text style={styles.salaryText}>{item.salary}</Text>
+          <Text style={styles.salaryText}>
+            {item.job_salary || "Not Disclosed"}
+          </Text>
         </View>
       </View>
     </TouchableOpacity>
@@ -110,6 +75,10 @@ const HomeScreen = ({ navigation }) => {
   const [locationFilter, setLocationFilter] = useState("");
   const [preferredRole, setPreferredRole] = useState("");
   const [loadingProfile, setLoadingProfile] = useState(true);
+
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -128,27 +97,61 @@ const HomeScreen = ({ navigation }) => {
         setLoadingProfile(false);
       }
     };
-
     fetchProfile();
   }, []);
 
-  const filteredJobs = jobData.filter((job) => {
+  useEffect(() => {
+    if (loadingProfile || !preferredRole) return;
+
+    const fetchData = async () => {
+      setLoading(true);
+      try {
+        console.log("Fetching jobs for role:", preferredRole);
+        const response = await axios.get(
+          "https://jsearch.p.rapidapi.com/search",
+          {
+            params: {
+              query: preferredRole,
+              page: "1",
+              num_pages: "1",
+              country: "in",
+              date_posted: "all",
+            },
+            headers: {
+              "x-rapidapi-key":
+                "2dcac70567mshb4a6263ccc73747p15bda5jsn18f0fa23de9d",
+              "x-rapidapi-host": "jsearch.p.rapidapi.com",
+            },
+          }
+        );
+        setData(response.data.data);
+        console.log("Fetched jobs:", response.data.data?.length);
+        console.log("Fetched jobs:", response.data.data[0]);
+      } catch (err) {
+        setError(err);
+        console.error("API Error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [preferredRole, loadingProfile]);
+
+  const filteredJobs = (data || []).filter((job) => {
     const matchesSearch =
-      job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.company.toLowerCase().includes(searchQuery.toLowerCase());
+      job.job_title?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      job.employer_name?.toLowerCase().includes(searchQuery.toLowerCase());
 
-    const matchesType = selectedType ? job.type === selectedType : true;
+    const matchesType = selectedType
+      ? job.job_employment_type?.toLowerCase() === selectedType.toLowerCase()
+      : true;
+
     const matchesLocation = locationFilter
-      ? job.location.toLowerCase().includes(locationFilter.toLowerCase())
+      ? job.job_city?.toLowerCase().includes(locationFilter.toLowerCase())
       : true;
 
-    const matchesPreferredRole = preferredRole
-      ? job.title.toLowerCase().includes(preferredRole.toLowerCase())
-      : true;
-
-    return (
-      matchesSearch && matchesType && matchesLocation && matchesPreferredRole
-    );
+    return matchesSearch && matchesType && matchesLocation;
   });
 
   const jobTypes = ["Full-time", "Part-time", "Contract", "Remote"];
@@ -156,7 +159,7 @@ const HomeScreen = ({ navigation }) => {
   const renderJobCard = ({ item }) => (
     <JobCard
       item={item}
-      onPress={() => navigation.navigate("JobInfo", { jobId: item.id })}
+      onPress={() => navigation.navigate("JobInfo", { job: item })}
     />
   );
 
@@ -237,7 +240,7 @@ const HomeScreen = ({ navigation }) => {
       <FlatList
         data={filteredJobs}
         renderItem={renderJobCard}
-        keyExtractor={(item) => item.id}
+        keyExtractor={(item) => item.job_id}
         contentContainerStyle={styles.jobList}
         showsVerticalScrollIndicator={false}
         ListEmptyComponent={
@@ -361,8 +364,8 @@ const styles = StyleSheet.create({
   },
   headerTop: {
     flexDirection: "row",
-    // justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: Sizes.SPACING_LG,
   },
   menuButton: {
@@ -379,10 +382,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   headerTitle: {
+    flex: 1,
     fontSize: Sizes.FONT_SIZE_XL,
     fontWeight: "600",
     color: Colors.TEXT_PRIMARY,
     textAlign: "center",
+    marginLeft: -40, // offsets the width of the profile button to visually center text
   },
   profileButton: {
     width: 40,
@@ -392,6 +397,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+
   profileIcon: {
     fontSize: 20,
     color: Colors.WHITE,

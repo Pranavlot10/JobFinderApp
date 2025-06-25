@@ -85,14 +85,26 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   const handleLogout = () => {
-    signOut(auth)
-      .then(() => {
-        navigation.replace("Login");
-      })
-      .catch((error) => {
-        console.error("Logout error:", error);
-        Alert.alert("Error logging out.");
-      });
+    Alert.alert("Sign Out", "Are you sure you want to sign out?", [
+      {
+        text: "Cancel",
+        style: "cancel",
+      },
+      {
+        text: "Sign Out",
+        style: "destructive",
+        onPress: () => {
+          signOut(auth)
+            .then(() => {
+              navigation.replace("Login");
+            })
+            .catch((error) => {
+              console.error("Logout error:", error);
+              Alert.alert("Error logging out.");
+            });
+        },
+      },
+    ]);
   };
 
   useEffect(() => {
@@ -110,11 +122,10 @@ const ProfileScreen = ({ navigation }) => {
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <ActivityIndicator
-          size="large"
-          color={PRIMARY}
-          style={{ marginTop: 50 }}
-        />
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={PRIMARY} />
+          <Text style={styles.loadingText}>Loading your profile...</Text>
+        </View>
       </SafeAreaView>
     );
   }
@@ -122,18 +133,29 @@ const ProfileScreen = ({ navigation }) => {
   if (!userData) {
     return (
       <SafeAreaView style={styles.container}>
-        <Text
-          style={{ textAlign: "center", marginTop: 50, color: TEXT_PRIMARY }}
-        >
-          No profile found. Please complete your profile setup.
-        </Text>
+        <View style={styles.emptyStateContainer}>
+          <Text style={styles.emptyStateIcon}>👤</Text>
+          <Text style={styles.emptyStateTitle}>No Profile Found</Text>
+          <Text style={styles.emptyStateSubtitle}>
+            Please complete your profile setup to get started.
+          </Text>
+          <TouchableOpacity
+            style={styles.setupButton}
+            onPress={() => navigation.navigate("ProfileSetup")}
+          >
+            <Text style={styles.setupButtonText}>Setup Profile</Text>
+          </TouchableOpacity>
+        </View>
       </SafeAreaView>
     );
   }
 
-  const StatCard = ({ title, value, color = PRIMARY }) => (
+  const StatCard = ({ title, value, color = PRIMARY, icon }) => (
     <View style={[styles.statCard, { borderLeftColor: color }]}>
-      <Text style={styles.statValue}>{value}</Text>
+      <View style={styles.statHeader}>
+        <Text style={styles.statIcon}>{icon}</Text>
+        <Text style={[styles.statValue, { color }]}>{value}</Text>
+      </View>
       <Text style={styles.statTitle}>{title}</Text>
     </View>
   );
@@ -144,25 +166,13 @@ const ProfileScreen = ({ navigation }) => {
     </View>
   );
 
-  const MenuOption = ({ icon, title, subtitle, onPress, showArrow = true }) => (
-    <TouchableOpacity style={styles.menuOption} onPress={onPress}>
-      <View style={styles.menuContent}>
-        <Text style={styles.menuIcon}>{icon}</Text>
-        <View style={styles.menuTextContainer}>
-          <Text style={styles.menuTitle}>{title}</Text>
-          {subtitle && <Text style={styles.menuSubtitle}>{subtitle}</Text>}
-        </View>
-      </View>
-      {showArrow && <Text style={styles.menuArrow}>›</Text>}
-    </TouchableOpacity>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={WHITE} />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}
       >
         {/* Header */}
         <View style={styles.header}>
@@ -170,17 +180,19 @@ const ProfileScreen = ({ navigation }) => {
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.openDrawer()}
+              activeOpacity={0.7}
             >
-              <Text style={styles.backIcon}>‹</Text>
+              <Text style={styles.backIcon}>≡</Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>Profile</Text>
+            <Text style={styles.headerTitle}>My Profile</Text>
             <TouchableOpacity
               style={styles.editButton}
               onPress={() =>
                 navigation.navigate("ProfileSetup", {
-                  fromProfile: true, // optional: flag to know where user came from
+                  fromProfile: true,
                 })
               }
+              activeOpacity={0.7}
             >
               <Text style={styles.editIcon}>✎</Text>
             </TouchableOpacity>
@@ -194,60 +206,87 @@ const ProfileScreen = ({ navigation }) => {
               source={{
                 uri:
                   userData.avatar ||
-                  "https://via.placeholder.com/100x100.png?text=👤",
+                  "https://via.placeholder.com/120x120.png?text=👤",
               }}
               style={styles.avatar}
             />
-            <TouchableOpacity style={styles.cameraButton}>
+            <View style={styles.onlineIndicator} />
+            <TouchableOpacity style={styles.cameraButton} activeOpacity={0.8}>
               <Text style={styles.cameraIcon}>📷</Text>
             </TouchableOpacity>
           </View>
 
-          <Text style={styles.name}>{userData.name || "Unnamed"}</Text>
-          <Text style={styles.title}>
-            {userData.preferredRole || "Role not set"}
-          </Text>
+          <Text style={styles.name}>{userData.name || "Unnamed User"}</Text>
+          <View style={styles.titleContainer}>
+            <Text style={styles.title}>
+              {userData.preferredRole || "Role not set"}
+            </Text>
+          </View>
           <Text style={styles.location}>
-            📍 {userData.city || "Unknown city"}
+            📍 {userData.city || "Location not specified"}
           </Text>
 
           <View style={styles.contactInfo}>
-            <Text style={styles.contactText}>📧 {userData.email}</Text>
-            <Text style={styles.contactText}>
-              🎓 {userData.education || "Not specified"}
-            </Text>
+            <View style={styles.contactRow}>
+              <Text style={styles.contactIcon}>📧</Text>
+              <Text style={styles.contactText}>{userData.email}</Text>
+            </View>
+            <View style={styles.contactRow}>
+              <Text style={styles.contactIcon}>🎓</Text>
+              <Text style={styles.contactText}>
+                {userData.education || "Education not specified"}
+              </Text>
+            </View>
           </View>
         </View>
 
         {/* Stats */}
         <View style={styles.statsSection}>
-          {/* <StatCard title="Applications" value="12" /> */}
-          <StatCard title="Saved Jobs" value="8" color={SUCCESS} />
-          {/* <StatCard title="Profile Views" value="156" color={INFO} /> */}
+          <StatCard title="Saved Jobs" value="8" color={SUCCESS} icon="💾" />
+          <StatCard title="Applications" value="12" color={INFO} icon="📝" />
         </View>
 
         {/* Bio */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>About Me</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>About Me</Text>
+            <Text style={styles.sectionIcon}>👋</Text>
+          </View>
           <Text style={styles.bioText}>
             {userData.bio ||
-              "Passionate job seeker with an interest in innovative roles and collaborative environments."}
+              "Passionate job seeker with an interest in innovative roles and collaborative environments. Always eager to learn new technologies and contribute to meaningful projects."}
           </Text>
         </View>
 
         {/* Skills */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Skills</Text>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Skills & Expertise</Text>
+            <Text style={styles.sectionIcon}>🚀</Text>
+          </View>
           <View style={styles.skillsContainer}>
-            {userData.skills?.map((skill, index) => (
-              <SkillTag key={index} skill={skill} />
-            )) || <Text>No skills listed</Text>}
+            {userData.skills?.length > 0 ? (
+              userData.skills.map((skill, index) => (
+                <SkillTag key={index} skill={skill} />
+              ))
+            ) : (
+              <View style={styles.emptySkillsContainer}>
+                <Text style={styles.emptySkillsText}>
+                  No skills added yet. Tap edit to add your skills!
+                </Text>
+              </View>
+            )}
           </View>
         </View>
 
         {/* Logout */}
         <View style={styles.logoutSection}>
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+          <TouchableOpacity
+            style={styles.logoutButton}
+            onPress={handleLogout}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.logoutIcon}>👋</Text>
             <Text style={styles.logoutText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
@@ -264,12 +303,65 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
+  scrollContent: {
+    paddingBottom: SPACING_XXL,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: SCREEN_PADDING,
+  },
+  loadingText: {
+    marginTop: MARGIN_LG,
+    fontSize: FONT_SIZE_MD,
+    color: TEXT_SECONDARY,
+  },
+  emptyStateContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: SCREEN_PADDING,
+  },
+  emptyStateIcon: {
+    fontSize: 60,
+    marginBottom: MARGIN_LG,
+  },
+  emptyStateTitle: {
+    fontSize: FONT_SIZE_XL,
+    fontWeight: "600",
+    color: TEXT_PRIMARY,
+    marginBottom: MARGIN_SM,
+  },
+  emptyStateSubtitle: {
+    fontSize: FONT_SIZE_MD,
+    color: TEXT_SECONDARY,
+    textAlign: "center",
+    marginBottom: MARGIN_LG,
+    lineHeight: 22,
+  },
+  setupButton: {
+    backgroundColor: PRIMARY,
+    paddingHorizontal: PADDING_XL,
+    paddingVertical: PADDING_LG,
+    borderRadius: BORDER_RADIUS,
+  },
+  setupButtonText: {
+    color: WHITE,
+    fontSize: FONT_SIZE_MD,
+    fontWeight: "600",
+  },
   header: {
     backgroundColor: WHITE,
     paddingHorizontal: SCREEN_PADDING,
     paddingVertical: PADDING_LG,
     borderBottomWidth: 1,
     borderBottomColor: BORDER,
+    shadowColor: SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   headerTop: {
     flexDirection: "row",
@@ -283,15 +375,20 @@ const styles = StyleSheet.create({
     backgroundColor: BACKGROUND_SECONDARY,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   backIcon: {
-    fontSize: FONT_SIZE_XL,
+    fontSize: FONT_SIZE_LG,
     color: TEXT_PRIMARY,
-    fontWeight: "bold",
+    fontWeight: "600",
   },
   headerTitle: {
     fontSize: FONT_SIZE_XL,
-    fontWeight: "600",
+    fontWeight: "700",
     color: TEXT_PRIMARY,
   },
   editButton: {
@@ -301,10 +398,16 @@ const styles = StyleSheet.create({
     backgroundColor: PRIMARY_LIGHT,
     alignItems: "center",
     justifyContent: "center",
+    shadowColor: PRIMARY,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 2,
   },
   editIcon: {
     fontSize: FONT_SIZE_MD,
     color: PRIMARY,
+    fontWeight: "600",
   },
   profileSection: {
     backgroundColor: WHITE,
@@ -312,33 +415,54 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING_XXL,
     paddingHorizontal: SCREEN_PADDING,
     marginBottom: MARGIN_MD,
+    shadowColor: SHADOW_COLOR,
+    shadowOffset: SHADOW_OFFSET,
+    shadowOpacity: SHADOW_OPACITY,
+    shadowRadius: SHADOW_RADIUS,
+    elevation: ELEVATION,
   },
   avatarContainer: {
     position: "relative",
     marginBottom: MARGIN_LG,
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    borderWidth: 3,
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
     borderColor: PRIMARY_LIGHT,
+  },
+  onlineIndicator: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: SUCCESS,
+    borderWidth: 2,
+    borderColor: WHITE,
   },
   cameraButton: {
     position: "absolute",
     bottom: 0,
     right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: PRIMARY,
     alignItems: "center",
     justifyContent: "center",
-    borderWidth: 2,
+    borderWidth: 3,
     borderColor: WHITE,
+    shadowColor: SHADOW_COLOR,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 3,
   },
   cameraIcon: {
-    fontSize: 14,
+    fontSize: FONT_SIZE_SM,
   },
   name: {
     fontSize: FONT_SIZE_XXL,
@@ -347,25 +471,49 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginBottom: MARGIN_SM,
   },
-  title: {
-    fontSize: FONT_SIZE_LG,
-    color: TEXT_SECONDARY,
-    textAlign: "center",
+  titleContainer: {
+    backgroundColor: PRIMARY_LIGHT,
+    paddingHorizontal: PADDING_MD,
+    paddingVertical: SPACING_SM,
+    borderRadius: BORDER_RADIUS_ROUND,
     marginBottom: MARGIN_SM,
+  },
+  title: {
+    fontSize: FONT_SIZE_MD,
+    color: PRIMARY,
+    textAlign: "center",
+    fontWeight: "600",
   },
   location: {
     fontSize: FONT_SIZE_MD,
-    color: TEXT_TERTIARY,
+    color: TEXT_SECONDARY,
     textAlign: "center",
     marginBottom: MARGIN_LG,
   },
   contactInfo: {
+    alignItems: "flex-start",
+    width: "100%",
+    paddingHorizontal: PADDING_LG,
+  },
+  contactRow: {
+    flexDirection: "row",
     alignItems: "center",
+    marginBottom: MARGIN_SM,
+    backgroundColor: BACKGROUND_SECONDARY,
+    paddingHorizontal: PADDING_MD,
+    paddingVertical: SPACING_SM,
+    borderRadius: BORDER_RADIUS_SM,
+    width: "100%",
+  },
+  contactIcon: {
+    fontSize: FONT_SIZE_MD,
+    marginRight: MARGIN_SM,
+    width: 20,
   },
   contactText: {
     fontSize: FONT_SIZE_SM,
     color: TEXT_SECONDARY,
-    marginBottom: MARGIN_SM,
+    flex: 1,
   },
   statsSection: {
     flexDirection: "row",
@@ -385,27 +533,50 @@ const styles = StyleSheet.create({
     shadowRadius: SHADOW_RADIUS,
     elevation: ELEVATION,
   },
+  statHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: MARGIN_SM,
+  },
+  statIcon: {
+    fontSize: FONT_SIZE_LG,
+  },
   statValue: {
     fontSize: FONT_SIZE_XL,
     fontWeight: "bold",
-    color: TEXT_PRIMARY,
-    marginBottom: MARGIN_SM,
   },
   statTitle: {
     fontSize: FONT_SIZE_SM,
     color: TEXT_SECONDARY,
+    fontWeight: "500",
   },
   section: {
     backgroundColor: WHITE,
+    marginHorizontal: SCREEN_PADDING,
     marginBottom: MARGIN_MD,
-    paddingHorizontal: SCREEN_PADDING,
+    paddingHorizontal: PADDING_XL,
     paddingVertical: PADDING_XL,
+    borderRadius: BORDER_RADIUS,
+    shadowColor: SHADOW_COLOR,
+    shadowOffset: SHADOW_OFFSET,
+    shadowOpacity: SHADOW_OPACITY,
+    shadowRadius: SHADOW_RADIUS,
+    elevation: ELEVATION,
+  },
+  sectionHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: MARGIN_LG,
   },
   sectionTitle: {
     fontSize: FONT_SIZE_LG,
-    fontWeight: "600",
+    fontWeight: "700",
     color: TEXT_PRIMARY,
-    marginBottom: MARGIN_LG,
+  },
+  sectionIcon: {
+    fontSize: FONT_SIZE_LG,
   },
   bioText: {
     fontSize: FONT_SIZE_MD,
@@ -423,57 +594,33 @@ const styles = StyleSheet.create({
     paddingVertical: SPACING_SM,
     borderRadius: BORDER_RADIUS_ROUND,
     marginBottom: MARGIN_SM,
+    shadowColor: PRIMARY,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   skillText: {
     fontSize: FONT_SIZE_SM,
     color: PRIMARY,
-    fontWeight: "500",
+    fontWeight: "600",
   },
-  menuContainer: {
-    gap: SPACING_SM,
-  },
-  menuOption: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: PADDING_LG,
-    paddingHorizontal: PADDING_MD,
+  emptySkillsContainer: {
+    padding: PADDING_LG,
     backgroundColor: BACKGROUND_SECONDARY,
     borderRadius: BORDER_RADIUS,
-    marginBottom: MARGIN_SM,
-  },
-  menuContent: {
-    flexDirection: "row",
     alignItems: "center",
-    flex: 1,
+    width: "100%",
   },
-  menuIcon: {
-    fontSize: FONT_SIZE_LG,
-    marginRight: MARGIN_MD,
-    width: 24,
-    textAlign: "center",
-  },
-  menuTextContainer: {
-    flex: 1,
-  },
-  menuTitle: {
-    fontSize: FONT_SIZE_MD,
-    fontWeight: "500",
-    color: TEXT_PRIMARY,
-    marginBottom: 2,
-  },
-  menuSubtitle: {
+  emptySkillsText: {
     fontSize: FONT_SIZE_SM,
-    color: TEXT_SECONDARY,
-  },
-  menuArrow: {
-    fontSize: FONT_SIZE_XL,
     color: TEXT_TERTIARY,
-    fontWeight: "bold",
+    textAlign: "center",
+    fontStyle: "italic",
   },
   logoutSection: {
     paddingHorizontal: SCREEN_PADDING,
-    paddingVertical: SPACING_XXL,
+    paddingVertical: SPACING_XL,
   },
   logoutButton: {
     backgroundColor: "#FF6B6B",
@@ -482,6 +629,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: SPACING_XXL,
+    flexDirection: "row",
+    shadowColor: "#FF6B6B",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  logoutIcon: {
+    fontSize: FONT_SIZE_MD,
+    marginRight: MARGIN_SM,
   },
   logoutText: {
     fontSize: FONT_SIZE_MD,

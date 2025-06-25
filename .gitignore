@@ -1,38 +1,52 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
-
-# dependencies
+# React Native
 node_modules/
+*.log
+*.lock
+npm-debug.*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
 
 # Expo
 .expo/
-dist/
-web-build/
-expo-env.d.ts
+.expo-shared/
 
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
+# Metro bundler cache
+.cache/
 
-# Metro
-.metro-health-check*
+# Babel cache
+babel.config.js
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
+# macOS system files
 .DS_Store
-*.pem
 
-# local env files
-.env*.local
+# Android (if using EAS build or detached)
+android/
+*.keystore
+
+# iOS (if using EAS build or detached)
+ios/
+Pods/
+*.pbxuser
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+*.xcuserstate
+xcuserdata/
+
+# Environment files
 .env
+.env.*
 
-# typescript
-*.tsbuildinfo
+# VSCode
+.vscode/
+
+# fastlane (if using for builds/deployment)
+fastlane/report.xml
+fastlane/screenshots/**/*.png
+fastlane/test_output
+
+# Misc
+coverage/
+web-build/
+*.tgz

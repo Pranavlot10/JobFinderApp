@@ -1,9 +1,8 @@
-import { initializeApp } from "firebase/app";
-import {
-  initializeAuth,
-  getReactNativePersistence,
-} from "firebase/auth/react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+// firebase.js
+import { initializeApp, getApps } from "firebase/app";
+import { initializeAuth, getReactNativePersistence } from "firebase/auth";
+import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCZuQbEVNYbEwxeSSIeR-sPPoQq7x6cYEo",
@@ -12,12 +11,20 @@ const firebaseConfig = {
   storageBucket: "jobfinderapp-f07de.appspot.com",
   messagingSenderId: "107435304602",
   appId: "1:107435304602:web:9592d5a83499b1e9876123",
-  measurementId: "G-TS1BFJ2MQ5", // Ignored in React Native
+  measurementId: "G-TS1BFJ2MQ5",
 };
 
-const app = initializeApp(firebaseConfig);
+let app;
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApps()[0];
+}
+
 const auth = initializeAuth(app, {
-  persistence: getReactNativePersistence(AsyncStorage),
+  persistence: getReactNativePersistence(ReactNativeAsyncStorage),
 });
 
-export { auth };
+const db = getFirestore(app);
+
+export { auth, db };

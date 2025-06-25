@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from "react";
-import axios from "axios";
 import {
   View,
   Text,
@@ -15,88 +14,58 @@ import {
 import * as Colors from "../constants/colors";
 import * as Sizes from "../constants/sizes";
 
+import { auth, db } from "../firebase";
+import { doc, getDoc } from "firebase/firestore";
+
 // Get screen dimensions for responsive sizing
 const { width, height } = Dimensions.get("window");
 
-// Sample job data (replace with actual data from your API)
 const jobData = [
+  // Sample data (you can replace this with API later)
   {
     id: "1",
-    title: "Senior Software Engineer",
-    company: "Tech Corp",
-    location: "San Francisco, CA",
-    type: "Full-time",
-    salary: "$120,000 - $160,000",
+    title: "Frontend Developer",
+    company: "WebTech",
+    location: "Remote",
+    type: "Remote",
+    salary: "$70,000",
   },
   {
     id: "2",
-    title: "Product Manager",
-    company: "Innovate Inc.",
-    location: "New York, NY",
+    title: "Backend Developer",
+    company: "DataWorks",
+    location: "NY",
     type: "Full-time",
-    salary: "$100,000 - $140,000",
+    salary: "$90,000",
   },
   {
     id: "3",
-    title: "UX Designer",
-    company: "Design Co.",
+    title: "Mobile Developer",
+    company: "Appify",
     location: "Remote",
     type: "Contract",
-    salary: "$80,000 - $110,000",
+    salary: "$85,000",
   },
   {
     id: "4",
-    title: "Data Analyst",
-    company: "DataCorp",
-    location: "Chicago, IL",
-    type: "Part-time",
-    salary: "$60,000 - $80,000",
+    title: "Data Scientist",
+    company: "AnalyzeIt",
+    location: "SF",
+    type: "Full-time",
+    salary: "$120,000",
   },
   {
     id: "5",
-    title: "Frontend Developer",
-    company: "WebTech Solutions",
-    location: "Remote",
-    type: "Remote",
-    salary: "$70,000 - $95,000",
-  },
-  {
-    id: "6",
-    title: "Marketing Specialist",
-    company: "Growth Marketing Co.",
-    location: "Los Angeles, CA",
+    title: "Fullstack Developer",
+    company: "BuildAll",
+    location: "Chicago",
     type: "Full-time",
-    salary: "$55,000 - $75,000",
+    salary: "$110,000",
   },
 ];
 
 const JobCard = ({ item, onPress }) => {
   const typeStyle = Colors.JOB_TYPES[item.type] || Colors.JOB_TYPES.default;
-
-  const [homeData, setHomeData] = useState([]);
-
-  // useEffect(() => {
-  //   const fetchHomeJobsData = async () => {
-  //     console.log("Fetching home jobs data...");
-  //     const homeJobsData = await axios.get(
-  //       "https://jsearch.p.rapidapi.com/search",
-  //       {
-  //         params: { query: "Full Stack Developer", country: "in", page: "1" },
-  //         headers: {
-  //           "x-rapidapi-key":
-  //             "96a68e0707msh13635f777e692d8p128203jsnf25554beff43",
-  //           "x-rapidapi-host": "jsearch.p.rapidapi.com",
-  //         },
-  //       }
-  //     );
-  //     setHomeData(homeJobsData.data.data);
-  //     console.log("hh", homeJobsData);
-  //   };
-  //   fetchHomeJobsData();
-  // });
-
-  // console.log(homeData[0]);
-  // console.log(homeData.length);
 
   return (
     <TouchableOpacity
@@ -139,17 +108,47 @@ const HomeScreen = ({ navigation }) => {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedType, setSelectedType] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
+  const [preferredRole, setPreferredRole] = useState("");
+  const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Filter jobs based on search query and filters
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+
+        const docSnap = await getDoc(doc(db, "users", uid));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setPreferredRole(data.preferredRole || "");
+        }
+      } catch (error) {
+        console.error("Error fetching profile:", error);
+      } finally {
+        setLoadingProfile(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
   const filteredJobs = jobData.filter((job) => {
     const matchesSearch =
       job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       job.company.toLowerCase().includes(searchQuery.toLowerCase());
+
     const matchesType = selectedType ? job.type === selectedType : true;
     const matchesLocation = locationFilter
       ? job.location.toLowerCase().includes(locationFilter.toLowerCase())
       : true;
-    return matchesSearch && matchesType && matchesLocation;
+
+    const matchesPreferredRole = preferredRole
+      ? job.title.toLowerCase().includes(preferredRole.toLowerCase())
+      : true;
+
+    return (
+      matchesSearch && matchesType && matchesLocation && matchesPreferredRole
+    );
   });
 
   const jobTypes = ["Full-time", "Part-time", "Contract", "Remote"];
@@ -169,12 +168,24 @@ const HomeScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.welcomeText}>Welcome back!</Text>
-        <Text style={styles.headerTitle}>Find your dream job</Text>
+        <View style={styles.headerTop}>
+          <TouchableOpacity
+            style={styles.profileButton}
+            onPress={() => navigation.openDrawer()}
+          >
+            <Text style={styles.profileIcon}>👤</Text>
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Jobs</Text>
+        </View>
 
-        {/* Search Bar */}
+        <Text style={styles.welcomeText}>Welcome back!</Text>
+        <Text style={styles.subtitle}>
+          {loadingProfile
+            ? "Loading jobs..."
+            : `Find ${preferredRole ? `${preferredRole} ` : ""}jobs`}
+        </Text>
+
         <View style={styles.searchContainer}>
           <View style={styles.searchWrapper}>
             <Text style={styles.searchIcon}>🔍</Text>
@@ -195,7 +206,6 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
 
-        {/* Active Filters */}
         {(selectedType || locationFilter) && (
           <View style={styles.activeFilters}>
             {selectedType && (
@@ -218,14 +228,12 @@ const HomeScreen = ({ navigation }) => {
         )}
       </View>
 
-      {/* Results Count */}
       <View style={styles.resultsHeader}>
         <Text style={styles.resultsCount}>
           {filteredJobs.length} job{filteredJobs.length !== 1 ? "s" : ""} found
         </Text>
       </View>
 
-      {/* Job List */}
       <FlatList
         data={filteredJobs}
         renderItem={renderJobCard}
@@ -345,18 +353,55 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: Sizes.SCREEN_PADDING,
-    paddingTop: 60,
+    paddingTop: 50, // Adjusted for status bar
     paddingBottom: Sizes.SPACING_XL,
     backgroundColor: Colors.WHITE,
     borderBottomWidth: Sizes.BORDER_WIDTH,
     borderBottomColor: Colors.BORDER_LIGHT,
+  },
+  headerTop: {
+    flexDirection: "row",
+    // justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: Sizes.SPACING_LG,
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.BACKGROUND_SECONDARY,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuIcon: {
+    fontSize: 20,
+    color: Colors.TEXT_PRIMARY,
+    fontWeight: "600",
+  },
+  headerTitle: {
+    fontSize: Sizes.FONT_SIZE_XL,
+    fontWeight: "600",
+    color: Colors.TEXT_PRIMARY,
+    textAlign: "center",
+  },
+  profileButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.PRIMARY,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  profileIcon: {
+    fontSize: 20,
+    color: Colors.WHITE,
   },
   welcomeText: {
     fontSize: Sizes.FONT_SIZE_MD,
     color: Colors.TEXT_SECONDARY,
     marginBottom: Sizes.SPACING_XS,
   },
-  headerTitle: {
+  subtitle: {
     fontSize: Sizes.FONT_SIZE_XXXL,
     fontWeight: "700",
     color: Colors.TEXT_PRIMARY,

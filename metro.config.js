@@ -6,15 +6,8 @@ module.exports = (() => {
 
   config.resolver = {
     ...resolver,
-    sourceExts: [...resolver.sourceExts, "cjs"], // Support .cjs for Firebase
-    unstable_enablePackageExports: false, // Disable package.json exports
-    resolveRequest: (context, moduleName, platform) => {
-      // Fallback for native modules if needed
-      if (moduleName.startsWith("react-native/")) {
-        return context.resolveRequest(context, `react-native`, platform);
-      }
-      return context.resolveRequest(context, moduleName, platform);
-    },
+    sourceExts: [...resolver.sourceExts, "cjs"], // Support .cjs files for Firebase
+    unstable_enablePackageExports: false, // Disable package.json exports for Firebase compatibility
   };
 
   return config;

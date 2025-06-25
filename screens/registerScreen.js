@@ -10,8 +10,7 @@ export default function RegisterScreen({ navigation }) {
   const handleRegister = () => {
     createUserWithEmailAndPassword(auth, email, password)
       .then(() => {
-        Alert.alert("Registered! Please log in.");
-        navigation.navigate("Home");
+        navigation.navigate("ProfileSetup");
       })
       .catch((e) => Alert.alert("Error", e.message));
   };

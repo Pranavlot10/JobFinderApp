@@ -9,7 +9,7 @@ export default function LoginScreen({ navigation }) {
 
   const handleLogin = () => {
     signInWithEmailAndPassword(auth, email, password)
-      .then((user) => navigation.navigate("Home"))
+      .then((user) => navigation.navigate("Drawer"))
       .catch((e) => Alert.alert("Error", e.message));
   };
 

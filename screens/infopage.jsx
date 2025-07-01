@@ -11,37 +11,27 @@ import * as Colors from "../constants/colors";
 import * as Sizes from "../constants/sizes";
 import { Ionicons } from "@expo/vector-icons";
 import { auth, db } from "../firebase";
+import { doc, setDoc, getDoc, deleteDoc } from "firebase/firestore";
+import { useSelector } from "react-redux";
+import * as LightColors from "../constants/colors";
+import * as DarkColors from "../constants/colors-dark";
 
 // Get screen dimensions for responsive sizing
 const { width, height } = Dimensions.get("window");
 
-// Sample job data (replace with actual data from API or route params)
-const jobData = {
-  salary: "90,000 - 140,000",
-};
-
 const JobInfoScreen = ({ route, navigation }) => {
-  // In a real app, use route.params to get job data
-  const { job } = route.params || { jobId: "1" }; // Fallback for testing
-  const {
-    title,
-    company,
-    location,
-    type,
-    salary,
-    description,
-    requirements,
-    postedDate,
-  } = jobData;
-
+  const { job } = route.params || {};
   const [bookmarked, setBookmarked] = React.useState(false);
-
   const user = auth.currentUser;
 
-  const jobTypeStyle = Colors.JOB_TYPES[type] || Colors.JOB_TYPES.default;
+  const theme = useSelector((state) => state.theme.mode);
+  const colors = theme === "dark" ? DarkColors : LightColors;
+
+  const jobTypeStyle =
+    colors.JOB_TYPES[job?.job_employment_type] || colors.JOB_TYPES.default;
 
   const checkIfBookmarked = async () => {
-    if (!user) return;
+    if (!user || !job) return;
     const docRef = doc(db, "users", user.uid, "bookmarks", job.job_id);
     const docSnap = await getDoc(docRef);
     setBookmarked(docSnap.exists());
@@ -52,7 +42,7 @@ const JobInfoScreen = ({ route, navigation }) => {
   }, []);
 
   const toggleBookmark = async () => {
-    if (!user) return;
+    if (!user || !job) return;
 
     const docRef = doc(db, "users", user.uid, "bookmarks", job.job_id);
 
@@ -68,6 +58,7 @@ const JobInfoScreen = ({ route, navigation }) => {
           job_employment_type: job.job_employment_type,
           job_posted_at: job.job_posted_at,
           job_description: job.job_description,
+          salary: job.salary || "Not Disclosed",
           created_at: new Date(),
         });
       }
@@ -79,19 +70,29 @@ const JobInfoScreen = ({ route, navigation }) => {
 
   return (
     <ScrollView
-      style={styles.container}
+      style={[styles.container, { backgroundColor: colors.BACKGROUND }]}
       contentContainerStyle={styles.scrollContent}
     >
       {/* Header Section */}
-      <View style={styles.headerBar}>
+      <View
+        style={[
+          styles.headerBar,
+          {
+            backgroundColor: colors.WHITE,
+            borderBottomColor: colors.BORDER,
+          },
+        ]}
+      >
         <TouchableOpacity
           onPress={() => navigation.goBack()}
           style={styles.headerIconButton}
         >
-          <Ionicons name="arrow-back" size={24} color={Colors.PRIMARY} />
+          <Ionicons name="arrow-back" size={24} color={colors.PRIMARY} />
         </TouchableOpacity>
 
-        <Text style={styles.headerTitle}>Info</Text>
+        <Text style={[styles.headerTitle, { color: colors.TEXT_PRIMARY }]}>
+          Info
+        </Text>
 
         <TouchableOpacity
           onPress={toggleBookmark}
@@ -100,18 +101,52 @@ const JobInfoScreen = ({ route, navigation }) => {
           <Ionicons
             name={bookmarked ? "bookmark" : "bookmark-outline"}
             size={24}
-            color={Colors.PRIMARY}
+            color={colors.PRIMARY}
           />
         </TouchableOpacity>
       </View>
-      <View style={styles.header}>
-        <Text style={[styles.title, { fontSize: Sizes.FONT_SIZE_XXL }]}>
+
+      {/* Job Details */}
+      <View
+        style={[
+          styles.header,
+          {
+            backgroundColor: colors.WHITE,
+            borderBottomColor: colors.BORDER,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.title,
+            {
+              fontSize: Sizes.FONT_SIZE_XXL,
+              color: colors.TEXT_PRIMARY,
+            },
+          ]}
+        >
           {job.job_title}
         </Text>
-        <Text style={[styles.company, { fontSize: Sizes.FONT_SIZE_LG }]}>
+        <Text
+          style={[
+            styles.company,
+            {
+              fontSize: Sizes.FONT_SIZE_LG,
+              color: colors.PRIMARY,
+            },
+          ]}
+        >
           {job.employer_name}
         </Text>
-        <Text style={[styles.location, { fontSize: Sizes.FONT_SIZE_MD }]}>
+        <Text
+          style={[
+            styles.location,
+            {
+              fontSize: Sizes.FONT_SIZE_MD,
+              color: colors.TEXT_SECONDARY,
+            },
+          ]}
+        >
           {job.job_location}
         </Text>
         <View style={styles.tagsContainer}>
@@ -130,67 +165,94 @@ const JobInfoScreen = ({ route, navigation }) => {
               {job.job_employment_type}
             </Text>
           </View>
-          <Text style={[styles.postedDate, { fontSize: Sizes.FONT_SIZE_SM }]}>
+          <Text
+            style={[
+              styles.postedDate,
+              {
+                fontSize: Sizes.FONT_SIZE_SM,
+                color: colors.TEXT_TERTIARY,
+              },
+            ]}
+          >
             {job.job_posted_at}
           </Text>
         </View>
       </View>
 
       {/* Salary Section */}
-      <View style={styles.salarySection}>
-        <Text style={[styles.salaryLabel, { fontSize: Sizes.FONT_SIZE_SM }]}>
+      <View
+        style={[
+          styles.salarySection,
+          {
+            backgroundColor: colors.WHITE,
+            borderBottomColor: colors.BORDER,
+          },
+        ]}
+      >
+        <Text
+          style={[
+            styles.salaryLabel,
+            {
+              fontSize: Sizes.FONT_SIZE_SM,
+              color: colors.TEXT_SECONDARY,
+            },
+          ]}
+        >
           Salary Range
         </Text>
-        <Text style={[styles.salaryAmount, { fontSize: Sizes.FONT_SIZE_XL }]}>
-          {salary}
+        <Text
+          style={[
+            styles.salaryAmount,
+            {
+              fontSize: Sizes.FONT_SIZE_XL,
+              color: colors.TEXT_PRIMARY,
+            },
+          ]}
+        >
+          {job.salary || "Not Disclosed"}
         </Text>
       </View>
 
       {/* Description Section */}
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { fontSize: Sizes.FONT_SIZE_LG }]}>
+      <View style={[styles.section, { backgroundColor: colors.WHITE }]}>
+        <Text
+          style={[
+            styles.sectionTitle,
+            {
+              fontSize: Sizes.FONT_SIZE_LG,
+              color: colors.TEXT_PRIMARY,
+            },
+          ]}
+        >
           Job Description
         </Text>
         <Text
           style={[
             styles.sectionText,
-            { fontSize: Sizes.FONT_SIZE_MD, lineHeight: Sizes.LINE_HEIGHT_MD },
+            {
+              fontSize: Sizes.FONT_SIZE_MD,
+              lineHeight: Sizes.LINE_HEIGHT_MD,
+              color: colors.TEXT_SECONDARY,
+            },
           ]}
         >
           {job.job_description}
         </Text>
       </View>
 
-      {/* Requirements Section
-      <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { fontSize: Sizes.FONT_SIZE_LG }]}>
-          Requirements
-        </Text>
-        <View style={styles.requirementsList}>
-          {requirements.map((req, index) => (
-            <View key={index} style={styles.requirementItem}>
-              <View style={styles.bullet} />
-              <Text
-                style={[
-                  styles.requirementText,
-                  {
-                    fontSize: Sizes.FONT_SIZE_MD,
-                    lineHeight: Sizes.LINE_HEIGHT_MD,
-                  },
-                ]}
-              >
-                {job.requirements}
-              </Text>
-            </View>
-          ))}
-        </View>
-      </View> */}
-
       {/* Apply Button */}
       <View style={styles.buttonContainer}>
-        <TouchableOpacity style={styles.applyButton}>
+        <TouchableOpacity
+          style={[styles.applyButton, { backgroundColor: colors.PRIMARY }]}
+        >
           <Text
-            style={[styles.applyButtonText, { fontSize: Sizes.FONT_SIZE_LG }]}
+            style={[
+              styles.applyButtonText,
+              {
+                fontSize: Sizes.FONT_SIZE_LG,
+                color: colors.WHITE,
+              },
+            ]}
           >
             Apply Now
           </Text>
@@ -203,7 +265,6 @@ const JobInfoScreen = ({ route, navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.BACKGROUND,
   },
   scrollContent: {
     paddingBottom: height * Sizes.SCROLL_PADDING_SCALE,
@@ -212,52 +273,33 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    backgroundColor: Colors.WHITE,
     paddingHorizontal: Sizes.SCREEN_PADDING,
     paddingTop: Sizes.SPACING_SM,
     paddingBottom: Sizes.SPACING_SM,
     borderBottomWidth: Sizes.BORDER_WIDTH,
-    borderBottomColor: Colors.BORDER,
   },
-
   headerIconButton: {
     padding: Sizes.PADDING_SM,
   },
-
   headerTitle: {
     fontSize: Sizes.FONT_SIZE_LG,
     fontWeight: "600",
-    color: Colors.TEXT_PRIMARY,
   },
-
   header: {
-    backgroundColor: Colors.WHITE,
     paddingHorizontal: Sizes.SCREEN_PADDING,
     paddingVertical: Sizes.SPACING_XXL,
     borderBottomWidth: Sizes.BORDER_WIDTH,
-    borderBottomColor: Colors.BORDER,
-  },
-  backButton: {
-    padding: Sizes.PADDING_SM,
-    marginBottom: Sizes.SPACING_MD,
-  },
-  backButtonText: {
-    color: Colors.PRIMARY,
-    fontWeight: "600",
   },
   title: {
     fontWeight: "700",
-    color: Colors.TEXT_PRIMARY,
     marginBottom: Sizes.SPACING_SM,
   },
   company: {
     fontWeight: "600",
-    color: Colors.PRIMARY,
     marginBottom: Sizes.SPACING_XS,
   },
   location: {
     fontWeight: "400",
-    color: Colors.TEXT_SECONDARY,
     marginBottom: Sizes.SPACING_LG,
   },
   tagsContainer: {
@@ -275,59 +317,31 @@ const styles = StyleSheet.create({
   },
   postedDate: {
     fontWeight: "400",
-    color: Colors.TEXT_TERTIARY,
   },
   salarySection: {
-    backgroundColor: Colors.WHITE,
     paddingHorizontal: Sizes.SCREEN_PADDING,
     paddingVertical: Sizes.SPACING_XL,
     marginTop: Sizes.SPACING_MD,
     borderBottomWidth: Sizes.BORDER_WIDTH,
-    borderBottomColor: Colors.BORDER,
   },
   salaryLabel: {
     fontWeight: "500",
-    color: Colors.TEXT_SECONDARY,
     marginBottom: Sizes.SPACING_XS,
   },
   salaryAmount: {
     fontWeight: "700",
-    color: Colors.TEXT_PRIMARY,
   },
   section: {
-    backgroundColor: Colors.WHITE,
     paddingHorizontal: Sizes.SCREEN_PADDING,
     paddingVertical: Sizes.SPACING_XL,
     marginTop: Sizes.SPACING_MD,
   },
   sectionTitle: {
     fontWeight: "700",
-    color: Colors.TEXT_PRIMARY,
     marginBottom: Sizes.SPACING_LG,
   },
   sectionText: {
     fontWeight: "400",
-    color: Colors.TEXT_SECONDARY,
-  },
-  requirementsList: {
-    gap: Sizes.SPACING_MD,
-  },
-  requirementItem: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  bullet: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: Colors.PRIMARY,
-    marginTop: 8,
-    marginRight: Sizes.SPACING_MD,
-  },
-  requirementText: {
-    flex: 1,
-    fontWeight: "400",
-    color: Colors.TEXT_SECONDARY,
   },
   buttonContainer: {
     paddingHorizontal: Sizes.SCREEN_PADDING,
@@ -335,7 +349,6 @@ const styles = StyleSheet.create({
     marginTop: Sizes.SPACING_MD,
   },
   applyButton: {
-    backgroundColor: Colors.PRIMARY,
     height: Sizes.BUTTON_HEIGHT,
     borderRadius: Sizes.BORDER_RADIUS,
     alignItems: "center",
@@ -343,7 +356,6 @@ const styles = StyleSheet.create({
   },
   applyButtonText: {
     fontWeight: "600",
-    color: Colors.WHITE,
   },
 });
 

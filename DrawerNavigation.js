@@ -1,10 +1,9 @@
-// DrawerNavigation.js
-import React from "react";
 import { createDrawerNavigator } from "@react-navigation/drawer";
 import HomeScreen from "./screens/home";
 import ProfileScreen from "./screens/profile";
 import BookmarksScreen from "./screens/bookmarks";
 import { Text } from "react-native";
+import CustomDrawer from "./components/customDrawer";
 
 const Drawer = createDrawerNavigator();
 
@@ -12,6 +11,7 @@ export default function DrawerNavigation() {
   return (
     <Drawer.Navigator
       initialRouteName="Home"
+      drawerContent={(props) => <CustomDrawer {...props} />} // 👈 add this line
       screenOptions={{
         headerShown: false,
         drawerStyle: {

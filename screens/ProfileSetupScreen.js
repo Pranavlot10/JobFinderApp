@@ -10,16 +10,21 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
+  Image,
+  TouchableOpacity,
 } from "react-native";
 import DropDownPicker from "react-native-dropdown-picker";
-import { auth, db } from "../firebase";
+import { auth, db, storage } from "../firebase";
 import { doc, setDoc, getDoc } from "firebase/firestore";
+import * as ImagePicker from "expo-image-picker";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 
 export default function ProfileSetupScreen({ navigation }) {
   const [name, setName] = useState("");
   const [city, setCity] = useState("");
   const [skills, setSkills] = useState([]);
   const [about, setAbout] = useState("");
+  const [profileImage, setProfileImage] = useState(null);
 
   const [educationOpen, setEducationOpen] = useState(false);
   const [education, setEducation] = useState(null);
@@ -67,6 +72,7 @@ export default function ProfileSetupScreen({ navigation }) {
         setRole(data.preferredRole || null);
         setExperience(data.experience || null);
         setAbout(data.bio || "");
+        setProfileImage(data.profileImage || null);
       }
     } catch (error) {
       console.error("Error loading profile data:", error);
@@ -93,14 +99,40 @@ export default function ProfileSetupScreen({ navigation }) {
         experience,
         skills,
         bio: about,
+        profileImage: profileImage || null,
         updatedAt: new Date(),
       });
 
       Alert.alert("Profile updated!");
-      navigation.goBack(); // Return to ProfileScreen
+      navigation.goBack();
     } catch (error) {
       console.error("Error saving profile:", error);
       Alert.alert("Error saving profile data");
+    }
+  };
+
+  const handleImagePick = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: [ImagePicker.MediaType.IMAGE],
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    if (!result.cancelled) {
+      const response = await fetch(result.uri);
+      const blob = await response.blob();
+
+      const imageRef = ref(
+        storage,
+        `profileImages/${auth.currentUser.uid}.jpg`
+      );
+      await uploadBytes(imageRef, blob);
+      const downloadURL = await getDownloadURL(imageRef);
+
+      setProfileImage(downloadURL);
+
+      Alert.alert("Profile picture updated!");
     }
   };
 
@@ -116,6 +148,16 @@ export default function ProfileSetupScreen({ navigation }) {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.container}>
           <Text style={styles.title}>Edit Your Profile</Text>
+
+          <TouchableOpacity onPress={handleImagePick}>
+            <Image
+              source={{
+                uri: profileImage || "https://via.placeholder.com/150",
+              }}
+              style={styles.profileImage}
+            />
+            <Text style={styles.changePhotoText}>Change Profile Picture</Text>
+          </TouchableOpacity>
 
           <TextInput
             placeholder="Full Name"
@@ -207,6 +249,18 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 20,
     textAlign: "center",
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    alignSelf: "center",
+    marginBottom: 10,
+  },
+  changePhotoText: {
+    textAlign: "center",
+    color: "#007BFF",
+    marginBottom: 20,
   },
   input: {
     borderWidth: 1,

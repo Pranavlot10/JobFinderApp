@@ -10,12 +10,20 @@ import {
   StatusBar,
   ActivityIndicator,
   Alert,
+  RefreshControl,
 } from "react-native";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../firebase";
-import { doc, getDoc } from "firebase/firestore";
+import {
+  doc,
+  getDoc,
+  updateDoc,
+  collection,
+  getDocs,
+} from "firebase/firestore";
+import * as ImagePicker from "expo-image-picker";
+import { useSelector } from "react-redux";
 
-// (Import your constants below as you already did — unchanged)
 import {
   PRIMARY,
   PRIMARY_LIGHT,
@@ -63,6 +71,14 @@ const ProfileScreen = ({ navigation }) => {
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  const theme = useSelector((state) => state.theme.mode);
+  const isDark = theme === "dark";
+
+  const THEME_BACKGROUND = isDark ? "#121212" : BACKGROUND;
+  const THEME_CARD = isDark ? "#1E1E1E" : WHITE;
+  const THEME_TEXT_PRIMARY = isDark ? "#FFFFFF" : TEXT_PRIMARY;
+  const THEME_TEXT_SECONDARY = isDark ? "#BBBBBB" : TEXT_SECONDARY;
+
   const fetchUserData = async () => {
     try {
       const uid = auth.currentUser?.uid;
@@ -71,8 +87,21 @@ const ProfileScreen = ({ navigation }) => {
       const docRef = doc(db, "users", uid);
       const docSnap = await getDoc(docRef);
 
-      if (docSnap.exists()) {
-        setUserData(docSnap.data());
+      let user = docSnap.exists() ? docSnap.data() : null;
+
+      if (user) {
+        const savedSnap = await getDocs(
+          collection(db, "users", uid, "bookmarks")
+        );
+        const appsSnap = await getDocs(
+          collection(db, "users", uid, "applications")
+        );
+
+        setUserData({
+          ...user,
+          savedCount: savedSnap.size,
+          applicationCount: appsSnap.size,
+        });
       } else {
         Alert.alert("No profile data found.");
       }
@@ -86,18 +115,13 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleLogout = () => {
     Alert.alert("Sign Out", "Are you sure you want to sign out?", [
-      {
-        text: "Cancel",
-        style: "cancel",
-      },
+      { text: "Cancel", style: "cancel" },
       {
         text: "Sign Out",
         style: "destructive",
         onPress: () => {
           signOut(auth)
-            .then(() => {
-              navigation.replace("Login");
-            })
+            .then(() => navigation.replace("Login"))
             .catch((error) => {
               console.error("Logout error:", error);
               Alert.alert("Error logging out.");
@@ -107,24 +131,83 @@ const ProfileScreen = ({ navigation }) => {
     ]);
   };
 
+  const handleImagePick = async () => {
+    try {
+      const permissionResult =
+        await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permissionResult.granted) {
+        Alert.alert("Permission required", "Allow access to gallery.");
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+      });
+
+      if (!result.canceled && result.assets[0]?.uri) {
+        const imageUri = result.assets[0].uri;
+        const formData = new FormData();
+
+        formData.append("file", {
+          uri: imageUri,
+          type: "image/jpeg",
+          name: "profile.jpg",
+        });
+        formData.append("upload_preset", "unsigned_profile_upload");
+
+        const res = await fetch(
+          "https://api.cloudinary.com/v1_1/dl7nxkacq/image/upload",
+          {
+            method: "POST",
+            body: formData,
+          }
+        );
+
+        const data = await res.json();
+
+        if (data.secure_url) {
+          const imageUrl = data.secure_url;
+          console.log("Uploaded to Cloudinary:", imageUrl);
+
+          const uid = auth.currentUser.uid;
+          const userRef = doc(db, "users", uid);
+          await updateDoc(userRef, { avatar: imageUrl });
+
+          fetchUserData();
+        } else {
+          throw new Error("Upload failed.");
+        }
+      }
+    } catch (err) {
+      console.error("Cloudinary upload error:", err);
+      Alert.alert("Image upload failed.");
+    }
+  };
+
   useEffect(() => {
     fetchUserData();
   }, []);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener("focus", () => {
-      fetchUserData(); // refresh profile when screen is focused again
+      fetchUserData();
     });
-
     return unsubscribe;
   }, [navigation]);
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: THEME_BACKGROUND }]}
+      >
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={PRIMARY} />
-          <Text style={styles.loadingText}>Loading your profile...</Text>
+          <Text style={[styles.loadingText, { color: THEME_TEXT_SECONDARY }]}>
+            Loading your profile...
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -132,11 +215,17 @@ const ProfileScreen = ({ navigation }) => {
 
   if (!userData) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView
+        style={[styles.container, { backgroundColor: THEME_BACKGROUND }]}
+      >
         <View style={styles.emptyStateContainer}>
           <Text style={styles.emptyStateIcon}>👤</Text>
-          <Text style={styles.emptyStateTitle}>No Profile Found</Text>
-          <Text style={styles.emptyStateSubtitle}>
+          <Text style={[styles.emptyStateTitle, { color: THEME_TEXT_PRIMARY }]}>
+            No Profile Found
+          </Text>
+          <Text
+            style={[styles.emptyStateSubtitle, { color: THEME_TEXT_SECONDARY }]}
+          >
             Please complete your profile setup to get started.
           </Text>
           <TouchableOpacity
@@ -151,12 +240,19 @@ const ProfileScreen = ({ navigation }) => {
   }
 
   const StatCard = ({ title, value, color = PRIMARY, icon }) => (
-    <View style={[styles.statCard, { borderLeftColor: color }]}>
+    <View
+      style={[
+        styles.statCard,
+        { borderLeftColor: color, backgroundColor: THEME_CARD },
+      ]}
+    >
       <View style={styles.statHeader}>
         <Text style={styles.statIcon}>{icon}</Text>
         <Text style={[styles.statValue, { color }]}>{value}</Text>
       </View>
-      <Text style={styles.statTitle}>{title}</Text>
+      <Text style={[styles.statTitle, { color: THEME_TEXT_SECONDARY }]}>
+        {title}
+      </Text>
     </View>
   );
 
@@ -167,30 +263,47 @@ const ProfileScreen = ({ navigation }) => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={WHITE} />
+    <SafeAreaView
+      style={[styles.container, { backgroundColor: THEME_BACKGROUND }]}
+    >
+      <StatusBar
+        barStyle={isDark ? "light-content" : "dark-content"}
+        backgroundColor={THEME_BACKGROUND}
+      />
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={loading} onRefresh={fetchUserData} />
+        }
       >
-        {/* Header */}
-        <View style={styles.header}>
+        <View
+          style={[
+            styles.header,
+            {
+              backgroundColor: THEME_CARD,
+              borderBottomColor: isDark ? "#333" : BORDER,
+            },
+          ]}
+        >
           <View style={styles.headerTop}>
             <TouchableOpacity
               style={styles.backButton}
               onPress={() => navigation.openDrawer()}
               activeOpacity={0.7}
             >
-              <Text style={styles.backIcon}>≡</Text>
+              <Text style={[styles.backIcon, { color: THEME_TEXT_PRIMARY }]}>
+                ≡
+              </Text>
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>My Profile</Text>
+            <Text style={[styles.headerTitle, { color: THEME_TEXT_PRIMARY }]}>
+              My Profile
+            </Text>
             <TouchableOpacity
               style={styles.editButton}
               onPress={() =>
-                navigation.navigate("ProfileSetup", {
-                  fromProfile: true,
-                })
+                navigation.navigate("ProfileSetup", { fromProfile: true })
               }
               activeOpacity={0.7}
             >
@@ -199,69 +312,88 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Profile Info */}
-        <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={{
-                uri:
-                  userData.avatar ||
-                  "https://via.placeholder.com/120x120.png?text=👤",
-              }}
-              style={styles.avatar}
-            />
-            <View style={styles.onlineIndicator} />
-            <TouchableOpacity style={styles.cameraButton} activeOpacity={0.8}>
-              <Text style={styles.cameraIcon}>📷</Text>
-            </TouchableOpacity>
-          </View>
-
-          <Text style={styles.name}>{userData.name || "Unnamed User"}</Text>
-          <View style={styles.titleContainer}>
-            <Text style={styles.title}>
-              {userData.preferredRole || "Role not set"}
-            </Text>
-          </View>
-          <Text style={styles.location}>
-            📍 {userData.city || "Location not specified"}
-          </Text>
-
-          <View style={styles.contactInfo}>
-            <View style={styles.contactRow}>
-              <Text style={styles.contactIcon}>📧</Text>
-              <Text style={styles.contactText}>{userData.email}</Text>
+        <TouchableOpacity onPress={handleImagePick} activeOpacity={0.8}>
+          <View
+            style={[styles.profileSection, { backgroundColor: THEME_CARD }]}
+          >
+            <View style={styles.avatarContainer}>
+              <Image
+                source={{
+                  uri:
+                    userData.avatar ||
+                    "https://via.placeholder.com/120x120.png?text=👤",
+                }}
+                style={styles.avatar}
+              />
+              <View style={styles.onlineIndicator} />
             </View>
-            <View style={styles.contactRow}>
-              <Text style={styles.contactIcon}>🎓</Text>
-              <Text style={styles.contactText}>
-                {userData.education || "Education not specified"}
+
+            <Text style={[styles.name, { color: THEME_TEXT_PRIMARY }]}>
+              {userData.name || "Unnamed User"}
+            </Text>
+            <View style={styles.titleContainer}>
+              <Text style={styles.title}>
+                {userData.preferredRole || "Role not set"}
               </Text>
             </View>
+            <Text style={[styles.location, { color: THEME_TEXT_SECONDARY }]}>
+              📍 {userData.city || "Location not specified"}
+            </Text>
+
+            <View style={styles.contactInfo}>
+              <View style={styles.contactRow}>
+                <Text style={styles.contactIcon}>📧</Text>
+                <Text
+                  style={[styles.contactText, { color: THEME_TEXT_SECONDARY }]}
+                >
+                  {userData.email}
+                </Text>
+              </View>
+              <View style={styles.contactRow}>
+                <Text style={styles.contactIcon}>🎓</Text>
+                <Text
+                  style={[styles.contactText, { color: THEME_TEXT_SECONDARY }]}
+                >
+                  {userData.education || "Education not specified"}
+                </Text>
+              </View>
+            </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
-        {/* Stats */}
         <View style={styles.statsSection}>
-          <StatCard title="Saved Jobs" value="8" color={SUCCESS} icon="💾" />
-          <StatCard title="Applications" value="12" color={INFO} icon="📝" />
+          <StatCard
+            title="Saved Jobs"
+            value={userData.savedCount || 0}
+            color={SUCCESS}
+            icon="💾"
+          />
+          <StatCard
+            title="Applications"
+            value={userData.applicationCount || 0}
+            color={INFO}
+            icon="📝"
+          />
         </View>
 
-        {/* Bio */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: THEME_CARD }]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>About Me</Text>
+            <Text style={[styles.sectionTitle, { color: THEME_TEXT_PRIMARY }]}>
+              About Me
+            </Text>
             <Text style={styles.sectionIcon}>👋</Text>
           </View>
-          <Text style={styles.bioText}>
+          <Text style={[styles.bioText, { color: THEME_TEXT_SECONDARY }]}>
             {userData.bio ||
               "Passionate job seeker with an interest in innovative roles and collaborative environments. Always eager to learn new technologies and contribute to meaningful projects."}
           </Text>
         </View>
 
-        {/* Skills */}
-        <View style={styles.section}>
+        <View style={[styles.section, { backgroundColor: THEME_CARD }]}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Skills & Expertise</Text>
+            <Text style={[styles.sectionTitle, { color: THEME_TEXT_PRIMARY }]}>
+              Skills & Expertise
+            </Text>
             <Text style={styles.sectionIcon}>🚀</Text>
           </View>
           <View style={styles.skillsContainer}>
@@ -279,7 +411,6 @@ const ProfileScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Logout */}
         <View style={styles.logoutSection}>
           <TouchableOpacity
             style={styles.logoutButton}

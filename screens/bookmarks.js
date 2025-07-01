@@ -10,43 +10,13 @@ import {
 } from "react-native";
 import * as Colors from "../constants/colors";
 import * as Sizes from "../constants/sizes";
-
-// Sample bookmarked jobs data
-const bookmarkedJobs = [
-  {
-    id: "1",
-    title: "Senior Software Engineer",
-    company: "Tech Corp",
-    location: "San Francisco, CA",
-    type: "Full-time",
-    salary: "$120,000 - $160,000",
-    bookmarkedDate: "2024-01-15",
-    urgency: "high",
-  },
-  {
-    id: "2",
-    title: "UX Designer",
-    company: "Design Co.",
-    location: "Remote",
-    type: "Contract",
-    salary: "$80,000 - $110,000",
-    bookmarkedDate: "2024-01-10",
-    urgency: "medium",
-  },
-  {
-    id: "3",
-    title: "Product Manager",
-    company: "StartupXYZ",
-    location: "New York, NY",
-    type: "Full-time",
-    salary: "$95,000 - $130,000",
-    bookmarkedDate: "2024-01-08",
-    urgency: "low",
-  },
-];
+import { auth, db } from "../firebase";
+import { collection, getDocs, doc, deleteDoc } from "firebase/firestore";
 
 const BookmarkCard = ({ item, onPress, onRemove }) => {
-  const typeStyle = Colors.JOB_TYPES[item.type] || Colors.JOB_TYPES.default;
+  const typeStyle =
+    Colors.JOB_TYPES[item.job_employment_type] || Colors.JOB_TYPES.default;
+
   const urgencyColor =
     {
       high: "#ff4757",
@@ -64,13 +34,13 @@ const BookmarkCard = ({ item, onPress, onRemove }) => {
         <View style={styles.jobInfo}>
           <View style={styles.titleRow}>
             <Text style={styles.jobTitle} numberOfLines={2}>
-              {item.title}
+              {item.job_title}
             </Text>
             <View
               style={[styles.urgencyDot, { backgroundColor: urgencyColor }]}
             />
           </View>
-          <Text style={styles.jobCompany}>{item.company}</Text>
+          <Text style={styles.jobCompany}>{item.employer_name}</Text>
         </View>
         <TouchableOpacity
           style={styles.removeButton}
@@ -85,7 +55,7 @@ const BookmarkCard = ({ item, onPress, onRemove }) => {
         <View style={styles.detailRow}>
           <View style={styles.detailItem}>
             <Text style={styles.detailIcon}>📍</Text>
-            <Text style={styles.detailText}>{item.location}</Text>
+            <Text style={styles.detailText}>{item.job_location}</Text>
           </View>
         </View>
         <View style={styles.detailRow}>
@@ -102,11 +72,13 @@ const BookmarkCard = ({ item, onPress, onRemove }) => {
             ]}
           >
             <Text style={[styles.jobTypeText, { color: typeStyle.color }]}>
-              {item.type}
+              {item.job_employment_type}
             </Text>
           </View>
           <Text style={styles.bookmarkDate}>
-            {new Date(item.bookmarkedDate).toLocaleDateString("en-US", {
+            {new Date(
+              item.created_at?.toDate?.() || Date.now()
+            ).toLocaleDateString("en-US", {
               month: "short",
               day: "numeric",
             })}
@@ -118,12 +90,36 @@ const BookmarkCard = ({ item, onPress, onRemove }) => {
 };
 
 const BookmarksScreen = ({ navigation }) => {
-  const handleJobPress = (job) => {
-    navigation.navigate("JobDetails", { job });
+  const [bookmarkedJobs, setBookmarkedJobs] = React.useState([]);
+  const user = auth.currentUser;
+
+  const fetchBookmarks = async () => {
+    if (!user) return;
+
+    try {
+      const snapshot = await getDocs(
+        collection(db, "users", user.uid, "bookmarks")
+      );
+      const jobs = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+      setBookmarkedJobs(jobs);
+    } catch (error) {
+      console.error("Failed to fetch bookmarks:", error);
+    }
   };
 
-  const handleRemoveBookmark = (jobId) => {
-    console.log("Remove bookmark for job:", jobId);
+  const handleRemoveBookmark = async (jobId) => {
+    if (!user) return;
+
+    try {
+      await deleteDoc(doc(db, "users", user.uid, "bookmarks", jobId));
+      setBookmarkedJobs((prev) => prev.filter((job) => job.id !== jobId));
+    } catch (error) {
+      console.error("Failed to remove bookmark:", error);
+    }
+  };
+
+  const handleJobPress = (job) => {
+    navigation.navigate("JobInfo", { job });
   };
 
   const handleGoBack = () => {
@@ -156,6 +152,10 @@ const BookmarksScreen = ({ navigation }) => {
     </View>
   );
 
+  React.useEffect(() => {
+    fetchBookmarks();
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar
@@ -163,20 +163,16 @@ const BookmarksScreen = ({ navigation }) => {
         backgroundColor={Colors.WHITE || "#ffffff"}
       />
 
-      {/* Enhanced Header */}
+      {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleGoBack}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
             <Text style={styles.backIcon}>‹</Text>
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
             <Text style={styles.headerTitle}>My Bookmarks</Text>
           </View>
-          <TouchableOpacity style={styles.menuButton} activeOpacity={0.7}>
+          <TouchableOpacity style={styles.menuButton}>
             <Text style={styles.menuIcon}>⋯</Text>
           </TouchableOpacity>
         </View>

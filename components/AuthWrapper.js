@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { View, ActivityIndicator } from "react-native";
-import { NavigationContainer } from "@react-navigation/native";
+import {
+  NavigationContainer,
+  DefaultTheme,
+  DarkTheme,
+} from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 
 import { auth, db } from "../firebase";
-
+import { useSelector } from "react-redux";
 import LoginScreen from "../screens/loginScreen";
 import RegisterScreen from "../screens/registerScreen";
 import ProfileSetupScreen from "../screens/ProfileSetupScreen";
@@ -19,6 +23,7 @@ export default function AuthWrapper() {
   const [user, setUser] = useState(null);
   const [checking, setChecking] = useState(true);
   const [profileComplete, setProfileComplete] = useState(false);
+  const theme = useSelector((state) => state.theme);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -47,7 +52,7 @@ export default function AuthWrapper() {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer theme={theme === "dark" ? DarkTheme : DefaultTheme}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {user ? (
           <>
